@@ -1,0 +1,14 @@
+*.pyc
+*.swp
+*.prof
+MANIFEST
+dist/
+build/
+.coverage
+.cache/
+*.egg-info/
+.pytest_cache/
+venv/
+.idea/
+.env
+ticker_data
