@@ -11,4 +11,4 @@ build/
 venv/
 .idea/
 .env
-ticker_data
+.ticker_data

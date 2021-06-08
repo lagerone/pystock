@@ -1,16 +1,18 @@
 import os
 import sys
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List
 
 import termplotlib as tpl
 import yfinance as yf
 
+from app_config import TICKER_DATA_PATH
 from live_stock_data import append_data_to_file, fetch_live_data, read_live_data_file
 
 
 def _create_ticker_data_file(ticker: str, cache_key: str) -> str:
-    file_path = f"ticker_data/ticker_{ticker}_{cache_key}.csv"
+    os.makedirs(TICKER_DATA_PATH, exist_ok=True)
+    file_path = os.path.join(TICKER_DATA_PATH, f"ticker_{ticker}_{cache_key}.csv")
     if not os.path.isfile(file_path):
         data = yf.download(tickers=ticker, period="20d", progress=False)
         data.to_csv(file_path)
@@ -36,8 +38,9 @@ def _get_file_cache_key():
 
 
 def _render_live_data_graph(ticker: str):
-    cache_key = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-    live_data_file_path = f"ticker_data/ticker_{ticker}_live_{cache_key}"
+    live_data_file_path = os.path.join(
+        f"{TICKER_DATA_PATH}", f"ticker_{ticker}_live_{_get_file_cache_key()}"
+    )
     live_data_count = 100
     live_stock_price, market_type = fetch_live_data(ticker=ticker)
     live_graph_price = int(live_stock_price * 100)
@@ -65,25 +68,6 @@ def _render_live_data_graph(ticker: str):
     )
     print(f"        Market: {market_type} {live_text}")
     live_fig.show()
-
-
-def _calc_streak_days(prices: List[float]) -> Tuple[int, int]:
-    reversed_prices = list(reversed(prices))
-
-    winning = 0
-    losing = 0
-    prev_price = reversed_prices[0]
-    for current_price in reversed_prices[1:]:
-        if current_price < prev_price:
-            if losing:
-                break
-            winning += 1
-        if current_price > prev_price:
-            if winning:
-                break
-            losing += 1
-        prev_price = current_price
-    return (winning, losing)
 
 
 def _main(ticker: str) -> None:
