@@ -106,35 +106,19 @@ def _main(ticker: str) -> None:
     _render_live_data_graph(ticker=ticker)
 
     price_delta = prices[-1] - prices[-2]
+    price_delta_color = TColor.GREEN if price_delta >= 0 else TColor.RED
 
     delta_symbol = "+" if price_delta >= 0 else "-"
-    price_delta = f"{delta_symbol}{round(price_delta, 2)}"
+    price_delta_text = f"{delta_symbol}{round(price_delta, 2)}"
+    price_delta_icon = "☺" if price_delta >= 0 else "☹"
 
     print("\n")
-
-    print(f"      {TColor.BOLD}{ticker}{TColor.END} closing prices, last 20 days.")
     print(
-        f"      Closed yesterday at {TColor.BOLD}{prices[-1]} ({price_delta}){TColor.END}."
+        f"      {TColor.BOLD}{ticker}{TColor.END} closed yesterday at {price_delta_color}{TColor.BOLD}{prices[-1]}"
+        f" ({price_delta_text}) {price_delta_icon} {TColor.END}{TColor.END}."
     )
+    print(f"      {TColor.BOLD}{ticker}{TColor.END} closing prices, last 20 days.")
 
-    winning_streak, losing_streak = _calc_streak_days(prices=prices)
-    if winning_streak > 1 or losing_streak > 1:
-        streak_days = winning_streak if winning_streak else losing_streak
-        streak_type = "winning" if winning_streak else "losing"
-        t_color = TColor.GREEN if winning_streak else TColor.RED
-        print(
-            f"      On a {t_color}{streak_days} day {streak_type} streak{TColor.END}."
-        )
-    elif winning_streak or losing_streak:
-        streak_type = "winning" if winning_streak else "losing"
-        emoji = "☹" if losing_streak else "☺"
-        t_color = TColor.GREEN if winning_streak else TColor.RED
-        print(
-            f"      {t_color}{emoji}{TColor.END} "
-            f" Today is a "
-            f"{t_color}{TColor.BOLD}{streak_type}{TColor.END}{TColor.END}"
-            " day."
-        )
     close_price_fig.show()
 
 
