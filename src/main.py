@@ -1,7 +1,6 @@
 import os
 import sys
 from datetime import datetime, timezone
-from enum import Enum
 from typing import List, Tuple
 
 import termplotlib as tpl
@@ -24,10 +23,10 @@ def _read_ticker_data_file(file_path: str) -> List[str]:
     return lines
 
 
-class TColor(Enum):
+class TColor:
     GREEN = "\033[32m"
     RED = "\033[31m"
-    ENDC = "\033[0m"
+    END = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
 
@@ -60,7 +59,7 @@ def _render_live_data_graph(ticker: str):
     live_fig = tpl.figure()
     live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
     live_text = (
-        f"{TColor.BOLD.value}{TColor.GREEN.value}• live{TColor.ENDC.value}{TColor.ENDC.value}"
+        f"{TColor.BOLD}{TColor.GREEN}• live{TColor.END}{TColor.END}"
         if is_stock_live
         else ""
     )
@@ -105,13 +104,17 @@ def _main(ticker: str) -> None:
     close_price_fig.plot(days, prices, width=50)
 
     _render_live_data_graph(ticker=ticker)
+
+    price_delta = prices[-1] - prices[-2]
+
+    delta_symbol = "+" if price_delta >= 0 else "-"
+    price_delta = f"{delta_symbol}{round(price_delta, 2)}"
+
     print("\n")
 
+    print(f"      {TColor.BOLD}{ticker}{TColor.END} closing prices, last 20 days.")
     print(
-        f"      {TColor.BOLD.value}{ticker}{TColor.ENDC.value} closing prices, last 20 days."
-    )
-    print(
-        f"      Closed yesterday at {TColor.BOLD.value}{prices[-1]}{TColor.ENDC.value}."
+        f"      Closed yesterday at {TColor.BOLD}{prices[-1]} ({price_delta}){TColor.END}."
     )
 
     winning_streak, losing_streak = _calc_streak_days(prices=prices)
@@ -120,16 +123,16 @@ def _main(ticker: str) -> None:
         streak_type = "winning" if winning_streak else "losing"
         t_color = TColor.GREEN if winning_streak else TColor.RED
         print(
-            f"      On a {t_color.value}{streak_days} day {streak_type} streak{TColor.ENDC.value}."
+            f"      On a {t_color}{streak_days} day {streak_type} streak{TColor.END}."
         )
     elif winning_streak or losing_streak:
         streak_type = "winning" if winning_streak else "losing"
         emoji = "☹" if losing_streak else "☺"
         t_color = TColor.GREEN if winning_streak else TColor.RED
         print(
-            f"      {t_color.value}{emoji}{TColor.ENDC.value} "
+            f"      {t_color}{emoji}{TColor.END} "
             f" Today is a "
-            f"{t_color.value}{TColor.BOLD.value}{streak_type}{TColor.ENDC.value}{TColor.ENDC.value}"
+            f"{t_color}{TColor.BOLD}{streak_type}{TColor.END}{TColor.END}"
             " day."
         )
     close_price_fig.show()
