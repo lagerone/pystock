@@ -37,13 +37,19 @@ def _get_file_cache_key():
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
 
-def _render_live_data_graph(ticker: str):
+def _render_live_data_graph(ticker: str, previous_price_delta: float):
     live_data_file_path = os.path.join(
         f"{TICKER_DATA_PATH}", f"ticker_{ticker}_live_{_get_file_cache_key()}"
     )
     live_data_count = 100
-    live_stock_price, market_type = fetch_live_data(ticker=ticker)
-    live_graph_price = int(live_stock_price * 100)
+    live_stock_data = fetch_live_data(ticker=ticker)
+    (
+        live_stock_price,
+        live_stock_change,
+        live_stock_change_percent,
+    ) = live_stock_data.get_live_stock_price()
+
+    live_graph_price = int(live_stock_data.get_live_stock_price()[0] * 100)
     stored_prices = read_live_data_file(file_path=live_data_file_path)
     is_stock_live = stored_prices[-3:] != [
         live_graph_price,
@@ -61,12 +67,27 @@ def _render_live_data_graph(ticker: str):
 
     live_fig = tpl.figure()
     live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
-    live_text = (
-        f"{TColor.BOLD}{TColor.GREEN}• live{TColor.END}{TColor.END}"
-        if is_stock_live
-        else ""
+
+    def ensure_two_dec(num: float) -> str:
+        return "{:.2f}".format(num)
+
+    change_color = TColor.GREEN if live_stock_change > 0 else TColor.RED
+    live_color = TColor.GREEN if is_stock_live else ""
+    live_color_end = TColor.END if is_stock_live else ""
+    close_change_color = TColor.GREEN if previous_price_delta >= 0 else TColor.RED
+    print(
+        f"  {live_color}{TColor.BOLD}{ticker}{TColor.END}{live_color_end}"
+        f"   {live_stock_data.market_type}"
+        f"     {TColor.BOLD}{ensure_two_dec(live_stock_price)}{TColor.END}"
+        f"     {change_color}{ensure_two_dec(live_stock_change)}"
+        f"     ({ensure_two_dec(live_stock_change_percent)}%){TColor.END}"
     )
-    print(f"        Market: {market_type} {live_text}")
+    print(
+        f"  CLOSED          "
+        f"  {ensure_two_dec(live_stock_data.regular_market_previous_close)}"
+        f"     {close_change_color}{ensure_two_dec(previous_price_delta)}{TColor.END}"
+    )
+    print("")
     live_fig.show()
 
 
@@ -87,18 +108,20 @@ def _main(ticker: str) -> None:
     close_price_fig = tpl.figure()
     close_price_fig.plot(days, prices, width=50)
 
-    _render_live_data_graph(ticker=ticker)
-
     price_delta = prices[-1] - prices[-2]
+
+    _render_live_data_graph(ticker=ticker, previous_price_delta=price_delta)
+
     price_delta_color = TColor.GREEN if price_delta >= 0 else TColor.RED
 
     delta_symbol = "+" if price_delta >= 0 else "-"
-    price_delta_text = f"{delta_symbol}{round(price_delta, 2)}"
+    price_delta_text = f"{delta_symbol}{round(abs(price_delta), 2)}"
     price_delta_icon = "☺" if price_delta >= 0 else "☹"
 
     print("\n")
     print(
-        f"      {TColor.BOLD}{ticker}{TColor.END} closed yesterday at {price_delta_color}{TColor.BOLD}{prices[-1]}"
+        f"      Closed at"
+        f" {price_delta_color}{TColor.BOLD}{round(prices[-1], 2)}"
         f" ({price_delta_text}) {price_delta_icon} {TColor.END}{TColor.END}."
     )
     print(f"      {TColor.BOLD}{ticker}{TColor.END} closing prices, last 20 days.")

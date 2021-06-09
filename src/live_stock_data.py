@@ -1,6 +1,7 @@
 import os
 import random
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Literal, Tuple
 
 import requests
 
@@ -25,7 +26,47 @@ def read_live_data_file(file_path: str) -> List[int]:
     return [int(line) for line in lines]
 
 
-def fetch_live_data(ticker: str) -> Tuple[float, str]:
+# pylint: disable=too-many-instance-attributes
+@dataclass(frozen=True)
+class LiveStockData:
+    pre_market_price: float
+    pre_market_change: float
+    pre_market_change_percent: float
+    regular_market_price: float
+    regular_market_change: float
+    regular_market_change_percent: float
+    regular_market_previous_close: float
+    post_market_price: float
+    post_market_change: float
+    post_market_change_percent: float
+    market_type: Literal["PRE", "REGULAR", "POST"]
+
+    def get_live_stock_price(self) -> Tuple[float, float, float]:
+        if self.market_type == "REGULAR":
+            return (
+                self.regular_market_price,
+                self.regular_market_change,
+                self.regular_market_change_percent,
+            )
+
+        if self.market_type == "PRE":
+            return (
+                self.pre_market_price,
+                self.pre_market_change,
+                self.pre_market_change_percent,
+            )
+
+        return (
+            self.post_market_price,
+            self.post_market_change,
+            self.post_market_change_percent,
+        )
+
+
+# pylint: enable=too-many-instance-attributes
+
+
+def fetch_live_data(ticker: str) -> LiveStockData:
     # stock price (float), market name (str), e.g. "POST", "PRE", "REGULAR"
     api_end_point = (
         "https://query1.finance.yahoo.com/v7/"
@@ -47,18 +88,20 @@ def fetch_live_data(ticker: str) -> Tuple[float, str]:
     url = f"{api_end_point}&fields={','.join(fields)}&symbols={ticker}"
     res = requests.get(url)
     json_res = res.json()
-    # PRE or REGULAR
-    market_state = json_res["quoteResponse"]["result"][0]["marketState"]
-    if market_state == "PRE":
-        return (float(json_res["quoteResponse"]["result"][0]["preMarketPrice"]), "PRE")
-    if market_state != "REGULAR":
-        return (
-            float(json_res["quoteResponse"]["result"][0]["postMarketPrice"]),
-            "POST",
-        )
-    return (
-        float(json_res["quoteResponse"]["result"][0]["regularMarketPrice"]),
-        "REGULAR",
+
+    data: Dict = json_res["quoteResponse"]["result"][0]
+    return LiveStockData(
+        pre_market_price=float(data.get("preMarketPrice", 0)),
+        pre_market_change=float(data.get("preMarketChange", 0)),
+        pre_market_change_percent=float(data.get("preMarketChangePercent", 0)),
+        regular_market_price=float(data["regularMarketPrice"]),
+        regular_market_change=float(data["regularMarketChange"]),
+        regular_market_change_percent=float(data["regularMarketChangePercent"]),
+        regular_market_previous_close=float(data["regularMarketPreviousClose"]),
+        post_market_price=float(data.get("postMarketPrice", 0)),
+        post_market_change=float(data.get("postMarketChange", 0)),
+        post_market_change_percent=float(data.get("postMarketChangePercent", 0)),
+        market_type=data["marketState"],
     )
 
 
