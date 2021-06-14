@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -7,7 +8,15 @@ import termplotlib as tpl
 import yfinance as yf
 
 from app_config import TICKER_DATA_PATH
-from live_stock_data import append_data_to_file, fetch_live_data, read_live_data_file
+from live_stock_data import (
+    MarketType,
+    append_data_to_file,
+    fetch_live_data,
+    read_live_data_file,
+)
+
+_LOG_LEVEL = int(os.getenv("LOG_LEVEL", f"{logging.ERROR}"))
+logging.basicConfig(level=_LOG_LEVEL)
 
 
 def _create_ticker_data_file(ticker: str, cache_key: str) -> str:
@@ -37,19 +46,15 @@ def _get_file_cache_key():
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
 
-def _render_live_data_graph(ticker: str, previous_price_delta: float):
+def _create_graph_prices(ticker: str):
     live_data_file_path = os.path.join(
         f"{TICKER_DATA_PATH}", f"ticker_{ticker}_live_{_get_file_cache_key()}"
     )
     live_data_count = 100
     live_stock_data = fetch_live_data(ticker=ticker)
-    (
-        live_stock_price,
-        live_stock_change,
-        live_stock_change_percent,
-    ) = live_stock_data.get_live_stock_price()
+    live_stock_price = live_stock_data.get_live_stock_price()
 
-    live_graph_price = int(live_stock_data.get_live_stock_price()[0] * 100)
+    live_graph_price = int(live_stock_price.market_price * 100)
     stored_prices = read_live_data_file(file_path=live_data_file_path)
     is_stock_live = stored_prices[-3:] != [
         live_graph_price,
@@ -64,6 +69,32 @@ def _render_live_data_graph(ticker: str, previous_price_delta: float):
         else stored_prices
     )
     graph_prices.append(live_graph_price)
+    return graph_prices
+
+
+def _is_stock_live(stored_prices: List[int], live_stock_price: float):
+    live_graph_price = round(int(live_stock_price) * 100)
+    return stored_prices[-3:] != [
+        live_graph_price,
+        live_graph_price,
+        live_graph_price,
+    ]
+
+
+# pylint: disable=too-many-locals
+def _render_live_data_graph(ticker: str, prices: List[float]):
+    live_data_file_path = os.path.join(
+        f"{TICKER_DATA_PATH}", f"ticker_{ticker}_live_{_get_file_cache_key()}"
+    )
+    live_stock_data = fetch_live_data(ticker=ticker)
+    live_stock_price = live_stock_data.get_live_stock_price()
+
+    closing_stock_price: float = (
+        live_stock_data.regular_market_price.market_price
+        if live_stock_data.market_type != MarketType.REGULAR
+        else live_stock_data.regular_market_previous_close
+    )
+    graph_prices = _create_graph_prices(ticker)
 
     live_fig = tpl.figure()
     live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
@@ -71,24 +102,38 @@ def _render_live_data_graph(ticker: str, previous_price_delta: float):
     def ensure_two_dec(num: float) -> str:
         return "{:.2f}".format(num)
 
-    change_color = TColor.GREEN if live_stock_change > 0 else TColor.RED
+    previous_price_delta = prices[-1] - prices[-2]
+
+    stored_prices = read_live_data_file(file_path=live_data_file_path)
+    is_stock_live = _is_stock_live(
+        stored_prices=stored_prices, live_stock_price=live_stock_price.market_price
+    )
+
+    change_color = TColor.GREEN if live_stock_price.market_change > 0 else TColor.RED
     live_color = TColor.GREEN if is_stock_live else ""
     live_color_end = TColor.END if is_stock_live else ""
     close_change_color = TColor.GREEN if previous_price_delta >= 0 else TColor.RED
     print(
         f"  {live_color}{TColor.BOLD}{ticker}{TColor.END}{live_color_end}"
         f"   {live_stock_data.market_type}"
-        f"     {TColor.BOLD}{ensure_two_dec(live_stock_price)}{TColor.END}"
-        f"     {change_color}{ensure_two_dec(live_stock_change)}"
-        f"     ({ensure_two_dec(live_stock_change_percent)}%){TColor.END}"
+        f"     {TColor.BOLD}{ensure_two_dec(live_stock_price.market_price)}{TColor.END}"
+        f"     {change_color}{ensure_two_dec(live_stock_price.market_change)}"
+        f"     ({ensure_two_dec(live_stock_price.market_change_percent)}%){TColor.END}"
     )
     print(
-        f"  CLOSED          "
-        f"  {ensure_two_dec(live_stock_data.regular_market_previous_close)}"
+        f"  CLOSED      "
+        f"  {ensure_two_dec(closing_stock_price)}"
         f"     {close_change_color}{ensure_two_dec(previous_price_delta)}{TColor.END}"
+    )
+    print(
+        f"  PREVCLOSE   "
+        f"  {ensure_two_dec(live_stock_data.regular_market_previous_close)}"
     )
     print("")
     live_fig.show()
+
+
+# pylint: enable=too-many-locals
 
 
 def _main(ticker: str) -> None:
@@ -108,24 +153,9 @@ def _main(ticker: str) -> None:
     close_price_fig = tpl.figure()
     close_price_fig.plot(days, prices, width=50)
 
-    price_delta = prices[-1] - prices[-2]
-
-    _render_live_data_graph(ticker=ticker, previous_price_delta=price_delta)
-
-    price_delta_color = TColor.GREEN if price_delta >= 0 else TColor.RED
-
-    delta_symbol = "+" if price_delta >= 0 else "-"
-    price_delta_text = f"{delta_symbol}{round(abs(price_delta), 2)}"
-    price_delta_icon = "☺" if price_delta >= 0 else "☹"
-
+    _render_live_data_graph(ticker=ticker, prices=prices)
     print("\n")
-    print(
-        f"      Closed at"
-        f" {price_delta_color}{TColor.BOLD}{round(prices[-1], 2)}"
-        f" ({price_delta_text}) {price_delta_icon} {TColor.END}{TColor.END}."
-    )
-    print(f"      {TColor.BOLD}{ticker}{TColor.END} closing prices, last 20 days.")
-
+    print("      Closing prices, last 20 days.")
     close_price_fig.show()
 
 

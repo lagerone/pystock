@@ -1,7 +1,8 @@
 import os
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Literal, Tuple
+from enum import Enum
+from typing import Dict, List
 
 import requests
 
@@ -28,39 +29,40 @@ def read_live_data_file(file_path: str) -> List[int]:
 
 # pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
+class MarketPrice:
+    market_price: float
+    market_change: float
+    market_change_percent: float
+
+
+class MarketType(str, Enum):
+    PRE = "PRE"
+    REGULAR = "REGULAR"
+    POST = "POST"
+    CLOSED = "CLOSED"
+
+
+@dataclass(frozen=True)
 class LiveStockData:
-    pre_market_price: float
-    pre_market_change: float
-    pre_market_change_percent: float
-    regular_market_price: float
-    regular_market_change: float
-    regular_market_change_percent: float
+    pre_market_price: MarketPrice
+    regular_market_price: MarketPrice
     regular_market_previous_close: float
-    post_market_price: float
-    post_market_change: float
-    post_market_change_percent: float
-    market_type: Literal["PRE", "REGULAR", "POST"]
+    post_market_price: MarketPrice
+    market_type: MarketType
 
-    def get_live_stock_price(self) -> Tuple[float, float, float]:
+    def _get_live_stock_price(self) -> MarketPrice:
+        if self.market_type == "CLOSED" and self.post_market_price.market_change > 0:
+            return self.post_market_price
         if self.market_type == "REGULAR":
-            return (
-                self.regular_market_price,
-                self.regular_market_change,
-                self.regular_market_change_percent,
-            )
-
+            return self.regular_market_price
         if self.market_type == "PRE":
-            return (
-                self.pre_market_price,
-                self.pre_market_change,
-                self.pre_market_change_percent,
-            )
+            return self.pre_market_price
+        return self.post_market_price
 
-        return (
-            self.post_market_price,
-            self.post_market_change,
-            self.post_market_change_percent,
-        )
+    def get_live_stock_price(self) -> MarketPrice:
+        live_stock_price = self._get_live_stock_price()
+        # logging.debug(f"live_stock_price: {live_stock_price}")
+        return live_stock_price
 
 
 # pylint: enable=too-many-instance-attributes
@@ -91,17 +93,20 @@ def fetch_live_data(ticker: str) -> LiveStockData:
 
     data: Dict = json_res["quoteResponse"]["result"][0]
     return LiveStockData(
-        pre_market_price=float(data.get("preMarketPrice", 0)),
-        pre_market_change=float(data.get("preMarketChange", 0)),
-        pre_market_change_percent=float(data.get("preMarketChangePercent", 0)),
-        regular_market_price=float(data["regularMarketPrice"]),
-        regular_market_change=float(data["regularMarketChange"]),
-        regular_market_change_percent=float(data["regularMarketChangePercent"]),
-        regular_market_previous_close=float(data["regularMarketPreviousClose"]),
-        post_market_price=float(data.get("postMarketPrice", 0)),
-        post_market_change=float(data.get("postMarketChange", 0)),
-        post_market_change_percent=float(data.get("postMarketChangePercent", 0)),
-        market_type=data["marketState"],
+        pre_market_price=_market_factory(market_type=MarketType.PRE, data=data),
+        regular_market_price=_market_factory(market_type=MarketType.REGULAR, data=data),
+        post_market_price=_market_factory(market_type=MarketType.POST, data=data),
+        regular_market_previous_close=float(data.get("regularMarketPreviousClose", 0)),
+        market_type=MarketType[data["marketState"]],
+    )
+
+
+def _market_factory(market_type: MarketType, data: Dict):
+    market_key = market_type.lower()
+    return MarketPrice(
+        market_price=float(data.get(f"{market_key}MarketPrice", 0)),
+        market_change=float(data.get(f"{market_key}MarketChange", 0)),
+        market_change_percent=float(data.get(f"{market_key}MarketChangePercent", 0)),
     )
 
 
