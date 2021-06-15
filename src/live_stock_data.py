@@ -37,6 +37,7 @@ class MarketPrice:
 
 class MarketType(str, Enum):
     PRE = "PRE"
+    PREPRE = "PREPRE"
     REGULAR = "REGULAR"
     POST = "POST"
     CLOSED = "CLOSED"

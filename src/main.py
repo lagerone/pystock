@@ -73,7 +73,7 @@ def _create_graph_prices(ticker: str):
 
 
 def _is_stock_live(stored_prices: List[int], live_stock_price: float):
-    live_graph_price = round(int(live_stock_price) * 100)
+    live_graph_price = int(live_stock_price * 100)
     return stored_prices[-3:] != [
         live_graph_price,
         live_graph_price,
@@ -82,7 +82,7 @@ def _is_stock_live(stored_prices: List[int], live_stock_price: float):
 
 
 # pylint: disable=too-many-locals
-def _render_live_data_graph(ticker: str, prices: List[float]):
+def _render_live_data_graph(ticker: str, prices: List[float], show_graph: bool):
     live_data_file_path = os.path.join(
         f"{TICKER_DATA_PATH}", f"ticker_{ticker}_live_{_get_file_cache_key()}"
     )
@@ -95,9 +95,6 @@ def _render_live_data_graph(ticker: str, prices: List[float]):
         else live_stock_data.regular_market_previous_close
     )
     graph_prices = _create_graph_prices(ticker)
-
-    live_fig = tpl.figure()
-    live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
 
     def ensure_two_dec(num: float) -> str:
         return "{:.2f}".format(num)
@@ -113,30 +110,42 @@ def _render_live_data_graph(ticker: str, prices: List[float]):
     live_color = TColor.GREEN if is_stock_live else ""
     live_color_end = TColor.END if is_stock_live else ""
     close_change_color = TColor.GREEN if previous_price_delta >= 0 else TColor.RED
+
+    market_type_map = {
+        MarketType.PREPRE.value: "PREPRE".rjust(7, " "),
+        MarketType.PRE.value: "PRE".rjust(7, " "),
+        MarketType.REGULAR.value: "REGULAR",
+        MarketType.POST.value: "POST".rjust(7, " "),
+        MarketType.CLOSED.value: "CLOSED".rjust(7, " "),
+    }
+
     print(
-        f"  {live_color}{TColor.BOLD}{ticker}{TColor.END}{live_color_end}"
-        f"   {live_stock_data.market_type}"
+        f"  {live_color}{TColor.BOLD}{ticker.ljust(3, ' ')}{TColor.END}{live_color_end}"
+        f"   {market_type_map[live_stock_data.market_type]}"
         f"     {TColor.BOLD}{ensure_two_dec(live_stock_price.market_price)}{TColor.END}"
         f"     {change_color}{ensure_two_dec(live_stock_price.market_change)}"
         f"     ({ensure_two_dec(live_stock_price.market_change_percent)}%){TColor.END}"
     )
     print(
-        f"  CLOSED      "
+        f"  CLOSED          "
         f"  {ensure_two_dec(closing_stock_price)}"
         f"     {close_change_color}{ensure_two_dec(previous_price_delta)}{TColor.END}"
     )
     print(
-        f"  PREVCLOSE   "
+        f"  PREVCLOSE       "
         f"  {ensure_two_dec(live_stock_data.regular_market_previous_close)}"
     )
     print("")
-    live_fig.show()
+    if show_graph:
+        live_fig = tpl.figure()
+        live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
+        live_fig.show()
 
 
 # pylint: enable=too-many-locals
 
 
-def _main(ticker: str) -> None:
+def _render_ticker(ticker: str, show_graph: bool = True) -> None:
     ticker_file_path = _create_ticker_data_file(
         ticker=ticker, cache_key=_get_file_cache_key()
     )
@@ -150,14 +159,22 @@ def _main(ticker: str) -> None:
         day_counter += 1
         prices.append(float(line.split(",")[4]))
 
-    close_price_fig = tpl.figure()
-    close_price_fig.plot(days, prices, width=50)
+    _render_live_data_graph(ticker=ticker, prices=prices, show_graph=show_graph)
 
-    _render_live_data_graph(ticker=ticker, prices=prices)
-    print("\n")
-    print("      Closing prices, last 20 days.")
-    close_price_fig.show()
+    if show_graph:
+        close_price_fig = tpl.figure()
+        close_price_fig.plot(days, prices, width=50)
+        print("\n")
+        print("      Closing prices, last 20 days.")
+        close_price_fig.show()
+
+
+def _main(tickers=List[str]):
+    for ticker in tickers:
+        logging.debug(f"Rendering ticker {ticker}...")
+        _render_ticker(ticker=ticker, show_graph=len(tickers) == 1)
+        print("\n")
 
 
 if __name__ == "__main__":
-    _main(ticker=sys.argv[1] if len(sys.argv) > 1 else os.environ["DEFAULT_TICKER"])
+    _main(tickers=sys.argv[1:] if len(sys.argv) > 1 else [os.environ["DEFAULT_TICKER"]])
