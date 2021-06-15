@@ -1,8 +1,10 @@
+import json
 import os
 import random
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List
+from urllib.request import urlopen
 
 import requests
 
@@ -109,6 +111,34 @@ def _market_factory(market_type: MarketType, data: Dict):
         market_change=float(data.get(f"{market_key}MarketChange", 0)),
         market_change_percent=float(data.get(f"{market_key}MarketChangePercent", 0)),
     )
+
+
+def get_jsonparsed_data(url):
+    """
+    Receive the content of ``url``, parse it as JSON and return the object.
+
+    Parameters
+    ----------
+    url : str
+
+    Returns
+    -------
+    dict
+    """
+    data = dict()
+    with urlopen(url) as response:
+        data = response.read().decode("utf-8")
+    return json.loads(data)
+
+
+def is_stock_market_open():
+    api_key = "addcf7cfa142a1b1c3f095ef4e4c59c9"
+    url = (
+        f"https://financialmodelingprep.com/api/v3/is-the-market-open?apikey={api_key}"
+    )
+    result: Dict = get_jsonparsed_data(url)
+    print(result)
+    print(result["isTheStockMarketOpen"])
 
 
 def fetch_fake_live_data():

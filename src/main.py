@@ -12,6 +12,7 @@ from live_stock_data import (
     MarketType,
     append_data_to_file,
     fetch_live_data,
+    is_stock_market_open,
     read_live_data_file,
 )
 
@@ -118,6 +119,8 @@ def _render_live_data_graph(ticker: str, prices: List[float], show_graph: bool):
         MarketType.POST.value: "POST".rjust(7, " "),
         MarketType.CLOSED.value: "CLOSED".rjust(7, " "),
     }
+
+    is_stock_market_open()
 
     print(
         f"  {live_color}{TColor.BOLD}{ticker.ljust(3, ' ')}{TColor.END}{live_color_end}"
