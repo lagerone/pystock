@@ -82,7 +82,7 @@ def _is_stock_live(stored_prices: List[int], live_stock_price: float):
 
 
 # pylint: disable=too-many-locals
-def _render_live_data_graph(ticker: str, closing_prices: List[float], show_graph: bool):
+def _render_live_data_info(ticker: str, closing_prices: List[float]):
     live_data_file_path = os.path.join(
         f"{TICKER_DATA_PATH}", f"ticker_{ticker}_live_{_get_file_cache_key()}"
     )
@@ -105,6 +105,7 @@ def _render_live_data_graph(ticker: str, closing_prices: List[float], show_graph
         MarketType.PRE.value: "PRE".rjust(7, " "),
         MarketType.REGULAR.value: "REGULAR",
         MarketType.POST.value: "POST".rjust(7, " "),
+        MarketType.POSTPOST.value: "POSTPOST".rjust(7, " "),
         MarketType.CLOSED.value: "CLOSED".rjust(7, " "),
     }
 
@@ -151,17 +152,13 @@ def _render_live_data_graph(ticker: str, closing_prices: List[float], show_graph
     )
     print("")
 
-    if show_graph:
-        graph_prices = _create_graph_prices(ticker)
-        live_fig = tpl.figure()
-        live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
-        live_fig.show()
-
 
 # pylint: enable=too-many-locals
 
 
-def _render_ticker(ticker: str, show_graph: bool = True) -> None:
+def _render_ticker(
+    ticker: str, show_live_graph: bool, show_history_graph: bool
+) -> None:
     ticker_file_path = _create_ticker_data_file(
         ticker=ticker, cache_key=_get_file_cache_key()
     )
@@ -175,11 +172,15 @@ def _render_ticker(ticker: str, show_graph: bool = True) -> None:
         day_counter += 1
         closing_prices.append(float(line.split(",")[4]))
 
-    _render_live_data_graph(
-        ticker=ticker, closing_prices=closing_prices, show_graph=show_graph
-    )
+    _render_live_data_info(ticker=ticker, closing_prices=closing_prices)
 
-    if show_graph:
+    if show_live_graph:
+        graph_prices = _create_graph_prices(ticker)
+        live_fig = tpl.figure()
+        live_fig.plot(range(len(graph_prices) + 1), graph_prices, width=50)
+        live_fig.show()
+
+    if show_history_graph:
         close_price_fig = tpl.figure()
         close_price_fig.plot(days, closing_prices, width=50)
         print("\n")
@@ -190,7 +191,12 @@ def _render_ticker(ticker: str, show_graph: bool = True) -> None:
 def _main(tickers=List[str]):
     for ticker in tickers:
         logging.debug(f"Rendering ticker {ticker}...")
-        _render_ticker(ticker=ticker, show_graph=len(tickers) == 1)
+        is_first_ticker = ticker == tickers[0]
+        _render_ticker(
+            ticker=ticker,
+            show_live_graph=is_first_ticker or len(tickers) <= 2,
+            show_history_graph=len(tickers) == 1,
+        )
         print("\n")
 
 

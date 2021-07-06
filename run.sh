@@ -9,10 +9,11 @@ popd () {
     command popd "$@" > /dev/null
 }
 
-TICKER=$1
+# All args except the first
+TICKERS=${@:1}
 
-if [ -z "$TICKER" ]; then
-  TICKER=AMC
+if [ -z "$TICKERS" ]; then
+  TICKERS=AMC
 fi
 
 SCRIPT=`readlink -f "$0"`
@@ -20,6 +21,6 @@ SCRIPT_PATH=`dirname $SCRIPT`
 
 pushd $SCRIPT_PATH
 source venv/bin/activate
-python src/main.py $TICKER
+python src/main.py $TICKERS
 deactivate
 popd

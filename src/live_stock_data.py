@@ -40,6 +40,7 @@ class MarketType(str, Enum):
     PREPRE = "PREPRE"
     REGULAR = "REGULAR"
     POST = "POST"
+    POSTPOST = "POSTPOST"
     CLOSED = "CLOSED"
 
 
@@ -61,9 +62,7 @@ class LiveStockData:
         return self.post_market_price
 
     def get_live_stock_price(self) -> MarketPrice:
-        live_stock_price = self._get_live_stock_price()
-        # logging.debug(f"live_stock_price: {live_stock_price}")
-        return live_stock_price
+        return self._get_live_stock_price()
 
 
 # pylint: enable=too-many-instance-attributes
