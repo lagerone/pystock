@@ -68,6 +68,10 @@ class LiveStockData:
 # pylint: enable=too-many-instance-attributes
 
 
+class LiveStockDataException(Exception):
+    """Raised when failed to fetch stock data"""
+
+
 def fetch_live_data(ticker: str) -> LiveStockData:
     # stock price (float), market name (str), e.g. "POST", "PRE", "REGULAR"
     api_end_point = (
@@ -88,7 +92,14 @@ def fetch_live_data(ticker: str) -> LiveStockData:
         "postMarketChangePercent",
     ]
     url = f"{api_end_point}&fields={','.join(fields)}&symbols={ticker}"
-    res = requests.get(url)
+    res = requests.get(
+        url,
+        headers={"User-Agent": "Lagerone App 1.0"},
+    )
+
+    if not res.ok:
+        raise LiveStockDataException(f"[{res.status_code}] {res.text}")
+
     json_res = res.json()
 
     data: Dict = json_res["quoteResponse"]["result"][0]

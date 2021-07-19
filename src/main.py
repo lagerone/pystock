@@ -188,7 +188,7 @@ def _render_ticker(
         close_price_fig.show()
 
 
-def _main(tickers=List[str]):
+def _main(tickers: List[str]):
     for ticker in tickers:
         logging.debug(f"Rendering ticker {ticker}...")
         is_first_ticker = ticker == tickers[0]
@@ -201,4 +201,8 @@ def _main(tickers=List[str]):
 
 
 if __name__ == "__main__":
-    _main(tickers=sys.argv[1:] if len(sys.argv) > 1 else [os.environ["DEFAULT_TICKER"]])
+    if len(sys.argv) == 1:
+        logging.error("You must specify a ticker symbol.")
+        sys.exit()
+
+    _main(tickers=sys.argv[1:])
