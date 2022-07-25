@@ -23,7 +23,7 @@ def _create_ticker_data_file(ticker: str, cache_key: str) -> str:
     os.makedirs(TICKER_DATA_PATH, exist_ok=True)
     file_path = os.path.join(TICKER_DATA_PATH, f"ticker_{ticker}_{cache_key}.csv")
     if not os.path.isfile(file_path):
-        data = yf.download(tickers=ticker, period="20d", progress=False)
+        data = yf.download(tickers=ticker, period="60d", progress=False)
         data.to_csv(file_path)
     return file_path
 
@@ -164,7 +164,7 @@ def _render_ticker(
     )
     lines = _read_ticker_data_file(file_path=ticker_file_path)
 
-    day_counter = -20
+    day_counter = -60
     days: List[int] = []
     closing_prices: List[float] = []
     for line in lines[1:]:
@@ -184,7 +184,7 @@ def _render_ticker(
         close_price_fig = tpl.figure()
         close_price_fig.plot(days, closing_prices, width=50)
         print("\n")
-        print("      Closing prices, last 20 days.")
+        print("      Closing prices, last 60 days.")
         close_price_fig.show()
 
 
